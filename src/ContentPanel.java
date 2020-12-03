@@ -22,7 +22,7 @@ public class ContentPanel extends JPanel implements ActionListener {
             loadingText = new JLabel();
             loadingText.setFont(loadingText.getFont().deriveFont(Font.ITALIC));
             loadingText.setHorizontalAlignment(JLabel.CENTER);
-            loadingText.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
+            loadingText.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
             add(loadingText, BorderLayout.CENTER);
             // load all owned games
             Thread loadOwnedGames = new Thread(() -> {
@@ -44,7 +44,6 @@ public class ContentPanel extends JPanel implements ActionListener {
                     JSONObject responseJSON = (JSONObject) ownedGamesJSON.get("response");
                     JSONArray gamesJSON = (JSONArray) responseJSON.get("games");
                     Long gameCount = (Long) responseJSON.get("game_count");
-                    //ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
                     JSONObject achievements_root_list = new JSONObject();
                     for (int i = 0; i < gameCount; ++i) {
                         JSONObject game = ((JSONObject) gamesJSON.get(i));
@@ -58,6 +57,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                             }
                         }
                     }
+                    // persist the achievement list
                     Util.writeJson(achievements_root_list, "achievementsList");
                     // finally load the combo box using the newly created achievement list
                     JSONObject achievementsList = (JSONObject) Util.readJson("achievementsList");
@@ -101,69 +101,45 @@ public class ContentPanel extends JPanel implements ActionListener {
     private void initComboBox(JSONObject achievementsList) {
         try {
             ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
-
-            for(Object key : achievementsList.keySet()){
+            // for better performance: persist an 'achievedCounter' so we don't have to calculate it every run
+            // check if achievement list has a achievedCounter
+            // do this by checking for it in the first game in the achievement list
+            Object firstKey = achievementsList.keySet().iterator().next();
+            JSONObject firstGamePlayerStats = ((JSONObject) achievementsList.get(firstKey));
+            if (firstGamePlayerStats.get("achievedCounter") == null) {
+                // has no achievement counter persisted in json
+                // -> count all achieved achievements and persist the counter
+                for (Object key : achievementsList.keySet()) {
+                    JSONObject playerStats = ((JSONObject) achievementsList.get(key));
+                    JSONArray achievements = (JSONArray) playerStats.get("achievements");
+                    int achieved_counter = 0;
+                    for (Object achievement : achievements) {
+                        Long achieved = (Long) ((JSONObject) achievement).get("achieved");
+                        if (achieved == 1) {
+                            achieved_counter++;
+                        }
+                    }
+                    playerStats.put("achievedCounter", achieved_counter);
+                    achievementsList.put(key, playerStats);
+                }
+                // finally persist the new achievement list with the achievedCounter (overrides old list)
+                Util.writeJson(achievementsList, "achievementsList");
+            }
+            for (Object key : achievementsList.keySet()) {
                 JSONObject playerStats = ((JSONObject) achievementsList.get(key));
                 JSONArray achievements = (JSONArray) playerStats.get("achievements");
-
-
+                Long achieved_counter = (Long) playerStats.get("achievedCounter");
                 String gameInfo = (String) playerStats.get("gameName");
-                int achieved_counter = 0;
-                for (Object achievement : achievements) {
-                    Long achieved = (Long) ((JSONObject) achievement).get("achieved");
-                    if (achieved == 1) {
-                        achieved_counter++;
-                    }
-                }
                 gameInfo += " (" + achieved_counter + "/" + achievements.size() + ")";
-
                 listOfGamesWithAchievements.add(gameInfo);
-
             }
             JComboBox gameList = new JComboBox(listOfGamesWithAchievements.toArray());
-            //petList.setSelectedIndex(0);
+            //gameList.setSelectedIndex(0);
             gameList.addActionListener(this);
-            //System.out.println(listOfGamesWithAchievements.size());
             add(gameList, BorderLayout.PAGE_START);
             setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-            /*
-            JSONObject responseJSON = (JSONObject) ownedGamesJSON.get("response");
-            JSONArray gamesJSON = (JSONArray) responseJSON.get("games");
-            Long gameCount = (Long) responseJSON.get("game_count");
-            ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
-            for (int i = 0; i < gameCount; ++i) {
-                JSONObject game = ((JSONObject) gamesJSON.get(i));
-                Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
-                if (has_community_visible_stats != null && has_community_visible_stats) {
-                    JSONObject achievements_root = (JSONObject) achievementsList.get( game.get("appid"));
-                    //JSONObject achievements_root = Util.getAchievementByAppID((Long) game.get("appid"));
-                    JSONObject playerStats = (JSONObject) achievements_root.get("playerstats");
-                    JSONArray achievements = (JSONArray) playerStats.get("achievements");
-                    if (achievements != null) {
-                        String gameInfo = (String) game.get("name");
-                        int achieved_counter = 0;
-                        for (Object achievement : achievements) {
-                            Long achieved = (Long)((JSONObject) achievement).get("achieved");
-                            if(achieved == 1){
-                                achieved_counter++;
-                            }
-                        }
-                        gameInfo += " (" + achieved_counter + "/" + achievements.size() + ")";
-
-                        listOfGamesWithAchievements.add(gameInfo);
-                        int debug = 0;
-                    }
-                }
-            }
-            JComboBox gameList = new JComboBox(listOfGamesWithAchievements.toArray());
-            //petList.setSelectedIndex(0);
-            gameList.addActionListener(this);
-            //System.out.println(listOfGamesWithAchievements.size());
-            add(gameList, BorderLayout.PAGE_START);
-            setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-             */
         } catch (Exception e) {
+            System.out.println("Failed to create game combo box!");
             e.printStackTrace();
         }
     }
