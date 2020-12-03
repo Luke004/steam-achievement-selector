@@ -11,6 +11,7 @@ public class ContentPanel extends JPanel implements ActionListener {
 
     JLabel picture, loadingText;
 
+    @SuppressWarnings("unchecked")
     public ContentPanel() throws Exception {
         super(new BorderLayout());
         try {
@@ -46,7 +47,6 @@ public class ContentPanel extends JPanel implements ActionListener {
                     Long gameCount = (Long) responseJSON.get("game_count");
                     JSONObject achievements_root_list = new JSONObject();
                     for (int i = 0; i < gameCount; ++i) {
-                        loadPercentage = (int) ((float)i / gameCount * 100);
                         JSONObject game = ((JSONObject) gamesJSON.get(i));
                         Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
                         if (has_community_visible_stats != null && has_community_visible_stats) {
@@ -57,6 +57,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                                 achievements_root_list.put(game.get("appid"), playerStats);
                             }
                         }
+                        loadPercentage = (int) ((float)i / gameCount * 100);
                         loadingText.setText("Loading achievement info for each game (" + loadPercentage + "%)");
                     }
                     // persist the achievement list
@@ -100,6 +101,7 @@ public class ContentPanel extends JPanel implements ActionListener {
          */
     }
 
+    @SuppressWarnings("unchecked")
     private void initComboBox(JSONObject achievementsList) {
         try {
             ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
@@ -135,7 +137,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                 gameInfo += " (" + achieved_counter + "/" + achievements.size() + ")";
                 listOfGamesWithAchievements.add(gameInfo);
             }
-            JComboBox gameList = new JComboBox(listOfGamesWithAchievements.toArray());
+            JComboBox<?> gameList = new JComboBox<>(listOfGamesWithAchievements.toArray());
             //gameList.setSelectedIndex(0);
             gameList.addActionListener(this);
             add(gameList, BorderLayout.PAGE_START);
@@ -150,7 +152,7 @@ public class ContentPanel extends JPanel implements ActionListener {
      * Listens to the combo box.
      */
     public void actionPerformed(ActionEvent e) {
-        JComboBox cb = (JComboBox) e.getSource();
+        JComboBox<?> cb = (JComboBox<?>) e.getSource();
         String petName = (String) cb.getSelectedItem();
         updateLabel(petName);
     }
