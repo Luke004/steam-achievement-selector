@@ -38,7 +38,7 @@ public class ContentPanel extends JPanel implements ActionListener {
             // when here, we have finished loading of all owned games
             // now load achievement info for each game:
             Thread loadAchievementInfo = new Thread(() -> {
-                loadingText.setText("Loading achievement info for each game ...");
+                int loadPercentage;
                 try {
                     JSONObject ownedGamesJSON = (JSONObject) Util.readJson("ownedGames");
                     JSONObject responseJSON = (JSONObject) ownedGamesJSON.get("response");
@@ -46,6 +46,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                     Long gameCount = (Long) responseJSON.get("game_count");
                     JSONObject achievements_root_list = new JSONObject();
                     for (int i = 0; i < gameCount; ++i) {
+                        loadPercentage = (int) ((float)i / gameCount * 100);
                         JSONObject game = ((JSONObject) gamesJSON.get(i));
                         Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
                         if (has_community_visible_stats != null && has_community_visible_stats) {
@@ -56,6 +57,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                                 achievements_root_list.put(game.get("appid"), playerStats);
                             }
                         }
+                        loadingText.setText("Loading achievement info for each game (" + loadPercentage + "%)");
                     }
                     // persist the achievement list
                     Util.writeJson(achievements_root_list, "achievementsList");
@@ -112,7 +114,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                 for (Object key : achievementsList.keySet()) {
                     JSONObject playerStats = ((JSONObject) achievementsList.get(key));
                     JSONArray achievements = (JSONArray) playerStats.get("achievements");
-                    int achieved_counter = 0;
+                    Long achieved_counter = 0L;
                     for (Object achievement : achievements) {
                         Long achieved = (Long) ((JSONObject) achievement).get("achieved");
                         if (achieved == 1) {
@@ -185,7 +187,7 @@ public class ContentPanel extends JPanel implements ActionListener {
     private static void createAndShowGUI() {
         //Create and set up the window.
         JFrame frame = new JFrame("Steam Achievement Selector");
-        frame.setPreferredSize(new Dimension(400, 300));
+        frame.setPreferredSize(new Dimension(800, 600));
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
