@@ -12,15 +12,19 @@ public class Util {
 
     public static JSONObject getAllOwnedGames() throws Exception {
         String url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/" +
-                "?key=2321BD719D46F6E288C8ACDDA8C4AF02&steamid=76561198009775508&include_appinfo=1&include_played_free_games=1";
+                "?key=2321BD719D46F6E288C8ACDDA8C4AF02" +
+                "&steamid=" + readUserData("steamID") +
+                "&include_appinfo=1&include_played_free_games=1";
         String response = getRequest(url);
         return (JSONObject) new JSONParser().parse(response);
     }
 
     public static JSONObject getAchievementByAppID(long appID) throws Exception {
         String url = "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/" +
-                "?key=2321BD719D46F6E288C8ACDDA8C4AF02&steamid=76561198009775508&appid=" + appID
-                + "&l=" + getLanguage();
+                "?key=2321BD719D46F6E288C8ACDDA8C4AF02" +
+                "&steamid=" + readUserData("steamID") +
+                "&appid=" + appID
+                + "&l=" + readUserData("language");
         String response = getRequest(url);
         return (JSONObject) new JSONParser().parse(response);
     }
@@ -46,45 +50,35 @@ public class Util {
         return response.toString();
     }
 
-    public static void createUserDataJSON(){
-         try {
-             readJson("userData");
-         } catch (Exception e){
-             JSONObject userData = new JSONObject();
-             userData.put("language", "english");
-             userData.put("lastSelectedGameIndex", 0);
-             writeJson(userData, "userData");
-         }
-    }
-
-    public static String getLanguage() {
+    public static void createDefaultUserData() {
         try {
-            JSONObject userDataJSON = readJson("userData");
-            return (String) userDataJSON.get("language");
+            readJson("userData");
         } catch (Exception e) {
-            return "english";
+            JSONObject userData = new JSONObject();
+            userData.put("language", "english");
+            userData.put("lastSelectedGameIndex", 0);
+            writeJson(userData, "userData");
         }
     }
 
-    public static int getLastSelectedGameIndex() {
-        try {
-            JSONObject userDataJSON = readJson("userData");
-            Long lastIndexLong = (Long) userDataJSON.get("lastSelectedGameIndex");
-            return lastIndexLong.intValue();
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public static void setLastSelectedGameIndex(int idx) {
+    public static void persistUserData(String key, Object value) {
         try {
             JSONObject userData = readJson("userData");
-            userData.put("lastSelectedGameIndex", idx);
+            userData.put(key, value);
             writeJson(userData, "userData");
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Warning: Could not persist user data '" + key + "'.");
         }
+    }
+
+    public static Object readUserData(String key) {
+        try {
+            JSONObject userDataJSON = readJson("userData");
+            return userDataJSON.get(key);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not read '" + key + "' from user data.");
+        }
+        return null;
     }
 
     public static JSONObject readJson(String filename) throws Exception {

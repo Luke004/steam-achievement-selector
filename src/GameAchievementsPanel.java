@@ -7,23 +7,21 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-public class ContentPanel extends JPanel implements ActionListener {
+public class GameAchievementsPanel extends JPanel implements ActionListener {
 
     private static final DecimalFormat df2 = new DecimalFormat("#.##");
-
     private Map<String, String> toolTipTexts;
     JSONArray achievementsList;
     JTable table;
-
-    JLabel picture, loadingText;
+    JLabel loadingText;
 
     @SuppressWarnings("unchecked")
-    public ContentPanel() throws Exception {
+    public GameAchievementsPanel() throws Exception {
         super(new BorderLayout());
-        Util.createUserDataJSON();
         try {
             Util.readJson("ownedGames");    // just attempt to read it, if it fails -> catch
             achievementsList = (JSONArray) (Util.readJson("achievementsList")).get("gameList");
@@ -125,7 +123,7 @@ public class ContentPanel extends JPanel implements ActionListener {
             }
             // create and add the comboBox with the game list and set the idx of the last opened game
             JComboBox<?> gameList = new JComboBox<>(listOfGamesWithAchievements.toArray());
-            int lastSelectedGameIndex = Util.getLastSelectedGameIndex();
+            int lastSelectedGameIndex = ((Long) Objects.requireNonNull(Util.readUserData("lastSelectedGameIndex"))).intValue();
             gameList.setSelectedIndex(lastSelectedGameIndex);
             gameList.addActionListener(this);
             add(gameList, BorderLayout.PAGE_START);
@@ -144,7 +142,7 @@ public class ContentPanel extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         JComboBox<?> cb = (JComboBox<?>) e.getSource();
         //String gameName = (String) cb.getSelectedItem();
-        Util.setLastSelectedGameIndex(cb.getSelectedIndex());
+        Util.persistUserData("lastSelectedGameIndex", cb.getSelectedIndex());
         fillTable(cb.getSelectedIndex());
     }
 
@@ -182,9 +180,9 @@ public class ContentPanel extends JPanel implements ActionListener {
                             "\"" + table.getValueAt(row, 0) +
                                     "\"\nHave you completed this achievement?",
                             "Mark as completed (Remove)", dialogButton);
-                    if(dialogResult == 0) {
+                    if (dialogResult == 0) {
                         System.out.println("Yes");
-                        ((DefaultTableModel)table.getModel()).removeRow(table.getSelectedRow());
+                        ((DefaultTableModel) table.getModel()).removeRow(table.getSelectedRow());
                         // TODO: change JSON data 'achieved'
                     } else {
                         System.out.println("No");
@@ -268,9 +266,17 @@ public class ContentPanel extends JPanel implements ActionListener {
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        // first time opened -> prompt the user for his steam id
+        if (Util.readUserData("steamID") == null) {
+            // no steamID to read from exists yet -> first time opened or data deleted
+            String steamID = JOptionPane.showInputDialog("What is your Steam ID?");
+            Util.createDefaultUserData();
+            Util.persistUserData("steamID", steamID);
+        }
+
         try {
             // create and set up the content pane
-            JComponent newContentPane = new ContentPanel();
+            JComponent newContentPane = new GameAchievementsPanel();
             newContentPane.setOpaque(true); //content panes must be opaque
             frame.setContentPane(newContentPane);
             frame.pack();
@@ -284,6 +290,6 @@ public class ContentPanel extends JPanel implements ActionListener {
     public static void main(String[] args) {
         //Schedule a job for the event-dispatching thread:
         //creating and showing this application's GUI.
-        javax.swing.SwingUtilities.invokeLater(ContentPanel::createAndShowGUI);
+        javax.swing.SwingUtilities.invokeLater(GameAchievementsPanel::createAndShowGUI);
     }
 }
