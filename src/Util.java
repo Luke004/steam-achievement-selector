@@ -59,7 +59,7 @@ public class Util {
 
     public static String getLanguage() {
         try {
-            JSONObject userDataJSON = (JSONObject) readJson("userData");
+            JSONObject userDataJSON = readJson("userData");
             return (String) userDataJSON.get("language");
         } catch (Exception e) {
             return "english";
@@ -68,7 +68,7 @@ public class Util {
 
     public static int getLastSelectedGameIndex() {
         try {
-            JSONObject userDataJSON = (JSONObject) readJson("userData");
+            JSONObject userDataJSON = readJson("userData");
             Long lastIndexLong = (Long) userDataJSON.get("lastSelectedGameIndex");
             return lastIndexLong.intValue();
         } catch (Exception e) {
@@ -79,7 +79,7 @@ public class Util {
     @SuppressWarnings("unchecked")
     public static void setLastSelectedGameIndex(int idx) {
         try {
-            JSONObject userData = (JSONObject) readJson("userData");
+            JSONObject userData = readJson("userData");
             userData.put("lastSelectedGameIndex", idx);
             writeJson(userData, "userData");
         } catch (Exception e) {
@@ -87,11 +87,11 @@ public class Util {
         }
     }
 
-    public static Object readJson(String filename) throws Exception {
+    public static JSONObject readJson(String filename) throws Exception {
         File m_file = new File(directory + File.separator + filename);
         FileReader reader = new FileReader(m_file);
         JSONParser jsonParser = new JSONParser();
-        return jsonParser.parse(reader);
+        return (JSONObject) jsonParser.parse(reader);
     }
 
     public static void writeJson(JSONObject mJSONObject, String fileName) {

@@ -1,8 +1,11 @@
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
+import java.io.FileReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
@@ -24,7 +27,7 @@ public class ContentPanel extends JPanel implements ActionListener {
         Util.createUserDataJSON();
         try {
             Util.readJson("ownedGames");    // just attempt to read it, if it fails -> catch
-            achievementsList = (JSONArray) ((JSONObject)Util.readJson("achievementsList")).get("gameList");
+            achievementsList = (JSONArray) (Util.readJson("achievementsList")).get("gameList");
             initComboBox();
         } catch (Exception e) {
             // could not load json from persisted files
@@ -49,7 +52,7 @@ public class ContentPanel extends JPanel implements ActionListener {
             Thread loadAchievementInfo = new Thread(() -> {
                 int loadPercentage;
                 try {
-                    JSONObject ownedGamesJSON = (JSONObject) Util.readJson("ownedGames");
+                    JSONObject ownedGamesJSON = Util.readJson("ownedGames");
                     JSONObject responseJSON = (JSONObject) ownedGamesJSON.get("response");
                     JSONArray gamesJSON = (JSONArray) responseJSON.get("games");
                     Long gameCount = (Long) responseJSON.get("game_count");
@@ -74,7 +77,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                     achievementsListJSON.put("gameList", achievements_root_list);
                     Util.writeJson(achievementsListJSON, "achievementsList");
                     // finally load the combo box using the newly created achievement list
-                    achievementsList = (JSONArray) ((JSONObject)Util.readJson("achievementsList")).get("gameList");
+                    achievementsList = (JSONArray) (Util.readJson("achievementsList")).get("gameList");
                     initComboBox();
                     loadingText.setVisible(false);
                 } catch (Exception ex) {
@@ -158,10 +161,25 @@ public class ContentPanel extends JPanel implements ActionListener {
         tableModel.addColumn("Global Percentage");
 
         Long currentGameID = (Long) ((JSONObject)achievementsList.get(gameIdx)).get("appid");
+        JSONObject achievementPercentagesJSONObject = null;
+        try {
+            // try to load the achievementPercentagesJSONObject locally
+            achievementPercentagesJSONObject = Util.readJson(currentGameID.toString());
+        } catch (Exception ignored) {
+            try {
+                // local loading of achievementPercentagesJSONObject failed -> send request to steam api
+                achievementPercentagesJSONObject = (JSONObject) Util.getGlobalAchievementPercentagesForApp(currentGameID)
+                        .get("achievementpercentages");
+                // persist the request
+                Util.writeJson(achievementPercentagesJSONObject, currentGameID.toString());
+            } catch (Exception ignored2) { }
+        }
+        if(achievementPercentagesJSONObject == null) {
+            System.out.println("Error: Could not load global achievement percentages.");
+            return;
+        }
         JSONArray gameAchievementList = (JSONArray) ((JSONObject)achievementsList.get(gameIdx)).get("achievements");
         try {
-            JSONObject achievementPercentagesJSONObject = (JSONObject) Util.getGlobalAchievementPercentagesForApp(currentGameID)
-                    .get("achievementpercentages");
             JSONArray achievementPercentagesJSONArray = (JSONArray) achievementPercentagesJSONObject.get("achievements");
             for (Object o : gameAchievementList) {
                 JSONObject achievementJSON = (JSONObject) o;
