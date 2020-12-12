@@ -4,20 +4,27 @@ import org.json.simple.JSONObject;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import javax.swing.*;
 
 public class ContentPanel extends JPanel implements ActionListener {
+
+    JSONArray achievementsList;
+    Long currentSelectedGameID;
+    JTable table;
+    private final static String[] columnNames = {"Name", "Difficulty"};
 
     JLabel picture, loadingText;
 
     @SuppressWarnings("unchecked")
     public ContentPanel() throws Exception {
         super(new BorderLayout());
+        Util.createUserDataJSON();
         try {
             Util.readJson("ownedGames");    // just attempt to read it, if it fails -> catch
-            JSONObject achievementsList = (JSONObject) Util.readJson("achievementsList");
-            initComboBox(achievementsList);
+            achievementsList = (JSONArray) ((JSONObject)Util.readJson("achievementsList")).get("gameList");
+            initComboBox();
         } catch (Exception e) {
             // could not load json from persisted files
             loadingText = new JLabel();
@@ -45,7 +52,7 @@ public class ContentPanel extends JPanel implements ActionListener {
                     JSONObject responseJSON = (JSONObject) ownedGamesJSON.get("response");
                     JSONArray gamesJSON = (JSONArray) responseJSON.get("games");
                     Long gameCount = (Long) responseJSON.get("game_count");
-                    JSONObject achievements_root_list = new JSONObject();
+                    JSONArray achievements_root_list = new JSONArray();
                     for (int i = 0; i < gameCount; ++i) {
                         JSONObject game = ((JSONObject) gamesJSON.get(i));
                         Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
@@ -54,17 +61,20 @@ public class ContentPanel extends JPanel implements ActionListener {
                             JSONObject playerStats = (JSONObject) achievements_root.get("playerstats");
                             JSONArray achievements = (JSONArray) playerStats.get("achievements");
                             if (achievements != null) {
-                                achievements_root_list.put(game.get("appid"), playerStats);
+                                playerStats.put("appid", game.get("appid"));
+                                achievements_root_list.add(playerStats);
                             }
                         }
-                        loadPercentage = (int) ((float)i / gameCount * 100);
+                        loadPercentage = (int) ((float) i / gameCount * 100);
                         loadingText.setText("Loading achievement info for each game (" + loadPercentage + "%)");
                     }
                     // persist the achievement list
-                    Util.writeJson(achievements_root_list, "achievementsList");
+                    JSONObject achievementsListJSON = new JSONObject();
+                    achievementsListJSON.put("gameList", achievements_root_list);
+                    Util.writeJson(achievementsListJSON, "achievementsList");
                     // finally load the combo box using the newly created achievement list
-                    JSONObject achievementsList = (JSONObject) Util.readJson("achievementsList");
-                    initComboBox(achievementsList);
+                    achievementsList = (JSONArray) ((JSONObject)Util.readJson("achievementsList")).get("gameList");
+                    initComboBox();
                     loadingText.setVisible(false);
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -72,50 +82,22 @@ public class ContentPanel extends JPanel implements ActionListener {
             });
             loadAchievementInfo.start();
         }
-
-        /*
-        String[] petStrings = { "Bird", "Cat", "Dog", "Rabbit", "Pig" };
-
-        //Create the combo box, select the item at index 4.
-        //Indices start at 0, so 4 specifies the pig.
-        JComboBox petList = new JComboBox(gameNames);
-        petList.setSelectedIndex(4);
-        petList.addActionListener(this);
-
-        //Set up the picture.
-        picture = new JLabel();
-        picture.setFont(picture.getFont().deriveFont(Font.ITALIC));
-        picture.setHorizontalAlignment(JLabel.CENTER);
-        updateLabel(petStrings[petList.getSelectedIndex()]);
-        picture.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
-
-        //The preferred size is hard-coded to be the width of the
-        //widest image and the height of the tallest image + the border.
-        //A real program would compute this.
-        picture.setPreferredSize(new Dimension(177, 122+10));
-
-        //Lay out the demo.
-        add(petList, BorderLayout.PAGE_START);
-        add(picture, BorderLayout.PAGE_END);
-        setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
-         */
     }
 
     @SuppressWarnings("unchecked")
-    private void initComboBox(JSONObject achievementsList) {
+    private void initComboBox() {
         try {
             ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
             // for better performance: persist an 'achievedCounter' so we don't have to calculate it every run
             // check if achievement list has a achievedCounter
             // do this by checking for it in the first game in the achievement list
-            Object firstKey = achievementsList.keySet().iterator().next();
-            JSONObject firstGamePlayerStats = ((JSONObject) achievementsList.get(firstKey));
+            JSONObject firstGamePlayerStats = (JSONObject) achievementsList.get(0);
             if (firstGamePlayerStats.get("achievedCounter") == null) {
                 // has no achievement counter persisted in json
                 // -> count all achieved achievements and persist the counter
-                for (Object key : achievementsList.keySet()) {
-                    JSONObject playerStats = ((JSONObject) achievementsList.get(key));
-                    JSONArray achievements = (JSONArray) playerStats.get("achievements");
+                for (Object game : achievementsList) {
+                    JSONObject gameJSON = (JSONObject) game;
+                    JSONArray achievements = (JSONArray) gameJSON.get("achievements");
                     Long achieved_counter = 0L;
                     for (Object achievement : achievements) {
                         Long achieved = (Long) ((JSONObject) achievement).get("achieved");
@@ -123,25 +105,37 @@ public class ContentPanel extends JPanel implements ActionListener {
                             achieved_counter++;
                         }
                     }
-                    playerStats.put("achievedCounter", achieved_counter);
-                    achievementsList.put(key, playerStats);
+                    gameJSON.put("achievedCounter", achieved_counter);
                 }
                 // finally persist the new achievement list with the achievedCounter (overrides old list)
-                Util.writeJson(achievementsList, "achievementsList");
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("gameList", achievementsList);
+                Util.writeJson(jsonObject, "achievementsList");
             }
-            for (Object key : achievementsList.keySet()) {
-                JSONObject playerStats = ((JSONObject) achievementsList.get(key));
-                JSONArray achievements = (JSONArray) playerStats.get("achievements");
-                Long achieved_counter = (Long) playerStats.get("achievedCounter");
-                String gameInfo = (String) playerStats.get("gameName");
+            for (Object game : achievementsList) {
+                JSONObject gameJSON = (JSONObject) game;
+                JSONArray achievements = (JSONArray) gameJSON.get("achievements");
+                Long achieved_counter = (Long) gameJSON.get("achievedCounter");
+                String gameInfo = (String) gameJSON.get("gameName");
                 gameInfo += " (" + achieved_counter + "/" + achievements.size() + ")";
                 listOfGamesWithAchievements.add(gameInfo);
             }
+
             JComboBox<?> gameList = new JComboBox<>(listOfGamesWithAchievements.toArray());
-            //gameList.setSelectedIndex(0);
+            int lastSelectedGameIndex = Util.getLastSelectedGameIndex();
+            gameList.setSelectedIndex(lastSelectedGameIndex);
+            currentSelectedGameID = (Long) ((JSONObject)achievementsList.get(lastSelectedGameIndex)).get("appid");
             gameList.addActionListener(this);
             add(gameList, BorderLayout.PAGE_START);
             setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+            // add table for game achievements
+            String[][] tableData = {
+                    {"Achievement 1", "99.0%"},
+                    {"Achievement 2", "1.0%"},
+            };
+            table = new JTable(tableData, columnNames);
+            add(new JScrollPane(table));
         } catch (Exception e) {
             System.out.println("Failed to create game combo box!");
             e.printStackTrace();
@@ -153,32 +147,19 @@ public class ContentPanel extends JPanel implements ActionListener {
      */
     public void actionPerformed(ActionEvent e) {
         JComboBox<?> cb = (JComboBox<?>) e.getSource();
-        String petName = (String) cb.getSelectedItem();
-        updateLabel(petName);
+        String gameName = (String) cb.getSelectedItem();
+        Util.setLastSelectedGameIndex(cb.getSelectedIndex());
+        listAchievements(gameName);
     }
 
-    protected void updateLabel(String name) {
-        ImageIcon icon = createImageIcon("images/" + name + ".gif");
-        picture.setIcon(icon);
-        picture.setToolTipText("A drawing of a " + name.toLowerCase());
-        if (icon != null) {
-            picture.setText(null);
-        } else {
-            picture.setText("Image not found");
-        }
-    }
+    protected void listAchievements(String name) {
+        String[][] tableData = {
+                {"Achievement 1", "99.0%"},
+                {"Achievement 2", "lol"},
+        };
 
-    /**
-     * Returns an ImageIcon, or null if the path was invalid.
-     */
-    protected static ImageIcon createImageIcon(String path) {
-        java.net.URL imgURL = ContentPanel.class.getResource(path);
-        if (imgURL != null) {
-            return new ImageIcon(imgURL);
-        } else {
-            System.err.println("Couldn't find file: " + path);
-            return null;
-        }
+        table = new JTable(tableData, columnNames);
+        //add(table);
     }
 
     /**

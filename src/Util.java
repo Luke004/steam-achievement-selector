@@ -38,6 +38,36 @@ public class Util {
         return response.toString();
     }
 
+    public static void createUserDataJSON(){
+         try {
+             readJson("userData");
+         } catch (Exception e){
+             JSONObject userData = new JSONObject();
+             writeJson(userData, "userData");
+         }
+    }
+
+    public static int getLastSelectedGameIndex() {
+        try {
+            JSONObject userDataJSON = (JSONObject) readJson("userData");
+            Long lastIndexLong = (Long) userDataJSON.get("lastSelectedGameIndex");
+            return lastIndexLong.intValue();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void setLastSelectedGameIndex(int idx) {
+        try {
+            JSONObject userData = (JSONObject) readJson("userData");
+            userData.put("lastSelectedGameIndex", idx);
+            writeJson(userData, "userData");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static Object readJson(String filename) throws Exception {
         File m_file = new File(directory + File.separator + filename);
         FileReader reader = new FileReader(m_file);
