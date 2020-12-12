@@ -1,14 +1,12 @@
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
-import java.io.FileReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
@@ -16,6 +14,7 @@ public class ContentPanel extends JPanel implements ActionListener {
 
     private static final DecimalFormat df2 = new DecimalFormat("#.##");
 
+    private Map<String, String> toolTipTexts;
     JSONArray achievementsList;
     JTable table;
 
@@ -144,15 +143,38 @@ public class ContentPanel extends JPanel implements ActionListener {
      */
     public void actionPerformed(ActionEvent e) {
         JComboBox<?> cb = (JComboBox<?>) e.getSource();
-        String gameName = (String) cb.getSelectedItem();
+        //String gameName = (String) cb.getSelectedItem();
         Util.setLastSelectedGameIndex(cb.getSelectedIndex());
         fillTable(cb.getSelectedIndex());
-        //listAchievements(gameName);
     }
 
     private void createTable() {
         table = new JTable();
         add(new JScrollPane(table));
+
+        table.addMouseMotionListener(new MouseAdapter() {
+            public void mouseMoved(MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                int col = table.columnAtPoint(e.getPoint());
+                if (row > -1 && col > -1) {
+                    Object value = table.getValueAt(row, col);
+                    if (null != value && !"".equals(value)) {
+                        if (col == 0) {     // 'achievement name' col
+                            table.setToolTipText(toolTipTexts.get(value.toString()));
+                        } else {            // 'global percentage' col
+                            table.setToolTipText(value.toString() + "% of all players have completed this achievement.");
+                        }
+                    } else {
+                        table.setToolTipText(null);     // close prompt
+                    }
+                }
+            }
+        });
+
+        table.getSelectionModel().addListSelectionListener(event -> {
+            System.out.println("clicked row");
+            //System.out.println(table.getValueAt(table.getSelectedRow(), 0).toString());
+        });
     }
 
     private void fillTable(int gameIdx) {
@@ -160,7 +182,7 @@ public class ContentPanel extends JPanel implements ActionListener {
         tableModel.addColumn("Name");
         tableModel.addColumn("Global Percentage");
 
-        Long currentGameID = (Long) ((JSONObject)achievementsList.get(gameIdx)).get("appid");
+        Long currentGameID = (Long) ((JSONObject) achievementsList.get(gameIdx)).get("appid");
         JSONObject achievementPercentagesJSONObject = null;
         try {
             // try to load the achievementPercentagesJSONObject locally
@@ -172,41 +194,43 @@ public class ContentPanel extends JPanel implements ActionListener {
                         .get("achievementpercentages");
                 // persist the request
                 Util.writeJson(achievementPercentagesJSONObject, currentGameID.toString());
-            } catch (Exception ignored2) { }
+            } catch (Exception ignored2) {
+            }
         }
-        if(achievementPercentagesJSONObject == null) {
+        if (achievementPercentagesJSONObject == null) {
             System.out.println("Error: Could not load global achievement percentages.");
             return;
         }
-        JSONArray gameAchievementList = (JSONArray) ((JSONObject)achievementsList.get(gameIdx)).get("achievements");
+        JSONArray gameAchievementList = (JSONArray) ((JSONObject) achievementsList.get(gameIdx)).get("achievements");
         try {
+            // save the description for each achievement which will later be displayed in tables tool tip text
+            if (toolTipTexts == null) {
+                toolTipTexts = new HashMap<>();
+            } else {
+                toolTipTexts.clear();
+            }
             JSONArray achievementPercentagesJSONArray = (JSONArray) achievementPercentagesJSONObject.get("achievements");
             for (Object o : gameAchievementList) {
                 JSONObject achievementJSON = (JSONObject) o;
-
-                if((Long)achievementJSON.get("achieved") == 0){     // only show achievements that are not done yet
-                    for(Object achievementWithPercentage : achievementPercentagesJSONArray){
+                if ((Long) achievementJSON.get("achieved") == 0) {     // only show achievements that are not done yet
+                    for (Object achievementWithPercentage : achievementPercentagesJSONArray) {
                         JSONObject achievementWithPercentageJSON = (JSONObject) achievementWithPercentage;
-                        if(achievementJSON.get("apiname").equals(achievementWithPercentageJSON.get("name"))){
+                        if (achievementJSON.get("apiname").equals(achievementWithPercentageJSON.get("name"))) {
                             Object globalPercentage = achievementWithPercentageJSON.get("percent");
-                            tableModel.insertRow(0, new Object[] {
+                            String achievementName = (String) achievementJSON.get("name");
+                            String achievementDescription = (String) achievementJSON.get("description");
+                            tableModel.insertRow(0, new Object[]{
                                     achievementJSON.get("name"),
                                     df2.format(globalPercentage)
                             });
+                            toolTipTexts.put(
+                                    achievementName,
+                                    achievementDescription.isEmpty() ? "No description available." : achievementDescription
+                            );
                             break;
                         }
                     }
-
-
-
                 }
-
-
-
-
-
-
-
             }
             table.setModel(tableModel);
         } catch (Exception e) {
