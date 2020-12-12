@@ -5,15 +5,17 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 
 public class ContentPanel extends JPanel implements ActionListener {
 
     JSONArray achievementsList;
     Long currentSelectedGameID;
     JTable table;
-    private final static String[] columnNames = {"Name", "Difficulty"};
 
     JLabel picture, loadingText;
 
@@ -128,14 +130,8 @@ public class ContentPanel extends JPanel implements ActionListener {
             gameList.addActionListener(this);
             add(gameList, BorderLayout.PAGE_START);
             setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-            // add table for game achievements
-            String[][] tableData = {
-                    {"Achievement 1", "99.0%"},
-                    {"Achievement 2", "1.0%"},
-            };
-            table = new JTable(tableData, columnNames);
-            add(new JScrollPane(table));
+            createTable();
+            fillTable(lastSelectedGameIndex);
         } catch (Exception e) {
             System.out.println("Failed to create game combo box!");
             e.printStackTrace();
@@ -149,17 +145,26 @@ public class ContentPanel extends JPanel implements ActionListener {
         JComboBox<?> cb = (JComboBox<?>) e.getSource();
         String gameName = (String) cb.getSelectedItem();
         Util.setLastSelectedGameIndex(cb.getSelectedIndex());
-        listAchievements(gameName);
+        fillTable(cb.getSelectedIndex());
+        //listAchievements(gameName);
     }
 
-    protected void listAchievements(String name) {
-        String[][] tableData = {
-                {"Achievement 1", "99.0%"},
-                {"Achievement 2", "lol"},
-        };
+    private void createTable() {
+        table = new JTable();
+        add(new JScrollPane(table));
+    }
 
-        table = new JTable(tableData, columnNames);
-        //add(table);
+    private void fillTable(int gameIdx) {
+        DefaultTableModel tableModel = new DefaultTableModel();
+        tableModel.addColumn("Name");
+        tableModel.addColumn("Difficulty");
+
+        JSONArray gameAchievementList = (JSONArray) ((JSONObject)achievementsList.get(gameIdx)).get("achievements");
+        for (Object o : gameAchievementList) {
+            JSONObject achievementJSON = (JSONObject) o;
+            tableModel.insertRow(0, new Object[] { achievementJSON.get("apiname"), "99%" });
+        }
+        table.setModel(tableModel);
     }
 
     /**
