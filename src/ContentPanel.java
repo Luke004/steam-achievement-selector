@@ -171,9 +171,26 @@ public class ContentPanel extends JPanel implements ActionListener {
             }
         });
 
-        table.getSelectionModel().addListSelectionListener(event -> {
-            System.out.println("clicked row");
-            //System.out.println(table.getValueAt(table.getSelectedRow(), 0).toString());
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                int row = table.rowAtPoint(evt.getPoint());
+                int col = table.columnAtPoint(evt.getPoint());
+                if (row >= 0 && col >= 0) {
+                    int dialogButton = JOptionPane.YES_NO_OPTION;
+                    int dialogResult = JOptionPane.showConfirmDialog(table.getParent(),
+                            "\"" + table.getValueAt(row, 0) +
+                                    "\"\nHave you completed this achievement?",
+                            "Mark as completed (Remove)", dialogButton);
+                    if(dialogResult == 0) {
+                        System.out.println("Yes");
+                        ((DefaultTableModel)table.getModel()).removeRow(table.getSelectedRow());
+                        // TODO: change JSON data 'achieved'
+                    } else {
+                        System.out.println("No");
+                    }
+                }
+            }
         });
     }
 
