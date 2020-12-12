@@ -3,18 +3,17 @@ import org.json.simple.JSONObject;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
 public class ContentPanel extends JPanel implements ActionListener {
 
+    private static final DecimalFormat df2 = new DecimalFormat("#.##");
+
     JSONArray achievementsList;
-    Long currentSelectedGameID;
     JTable table;
 
     JLabel picture, loadingText;
@@ -122,11 +121,10 @@ public class ContentPanel extends JPanel implements ActionListener {
                 gameInfo += " (" + achieved_counter + "/" + achievements.size() + ")";
                 listOfGamesWithAchievements.add(gameInfo);
             }
-
+            // create and add the comboBox with the game list and set the idx of the last opened game
             JComboBox<?> gameList = new JComboBox<>(listOfGamesWithAchievements.toArray());
             int lastSelectedGameIndex = Util.getLastSelectedGameIndex();
             gameList.setSelectedIndex(lastSelectedGameIndex);
-            currentSelectedGameID = (Long) ((JSONObject)achievementsList.get(lastSelectedGameIndex)).get("appid");
             gameList.addActionListener(this);
             add(gameList, BorderLayout.PAGE_START);
             setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -157,14 +155,46 @@ public class ContentPanel extends JPanel implements ActionListener {
     private void fillTable(int gameIdx) {
         DefaultTableModel tableModel = new DefaultTableModel();
         tableModel.addColumn("Name");
-        tableModel.addColumn("Difficulty");
+        tableModel.addColumn("Global Percentage");
 
+        Long currentGameID = (Long) ((JSONObject)achievementsList.get(gameIdx)).get("appid");
         JSONArray gameAchievementList = (JSONArray) ((JSONObject)achievementsList.get(gameIdx)).get("achievements");
-        for (Object o : gameAchievementList) {
-            JSONObject achievementJSON = (JSONObject) o;
-            tableModel.insertRow(0, new Object[] { achievementJSON.get("apiname"), "99%" });
+        try {
+            JSONObject achievementPercentagesJSONObject = (JSONObject) Util.getGlobalAchievementPercentagesForApp(currentGameID)
+                    .get("achievementpercentages");
+            JSONArray achievementPercentagesJSONArray = (JSONArray) achievementPercentagesJSONObject.get("achievements");
+            for (Object o : gameAchievementList) {
+                JSONObject achievementJSON = (JSONObject) o;
+
+                if((Long)achievementJSON.get("achieved") == 0){     // only show achievements that are not done yet
+                    for(Object achievementWithPercentage : achievementPercentagesJSONArray){
+                        JSONObject achievementWithPercentageJSON = (JSONObject) achievementWithPercentage;
+                        if(achievementJSON.get("apiname").equals(achievementWithPercentageJSON.get("name"))){
+                            Object globalPercentage = achievementWithPercentageJSON.get("percent");
+                            tableModel.insertRow(0, new Object[] {
+                                    achievementJSON.get("name"),
+                                    df2.format(globalPercentage)
+                            });
+                            break;
+                        }
+                    }
+
+
+
+                }
+
+
+
+
+
+
+
+            }
+            table.setModel(tableModel);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error: Could not load global achievement percentages.");
         }
-        table.setModel(tableModel);
     }
 
     /**

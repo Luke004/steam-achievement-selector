@@ -19,7 +19,15 @@ public class Util {
 
     public static JSONObject getAchievementByAppID(long appID) throws Exception {
         String url = "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/" +
-                "?key=2321BD719D46F6E288C8ACDDA8C4AF02&steamid=76561198009775508&appid=" + appID;
+                "?key=2321BD719D46F6E288C8ACDDA8C4AF02&steamid=76561198009775508&appid=" + appID
+                + "&l=" + getLanguage();
+        String response = getRequest(url);
+        return (JSONObject) new JSONParser().parse(response);
+    }
+
+    public static JSONObject getGlobalAchievementPercentagesForApp(long appID) throws Exception {
+        String url = "https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/" +
+                "?key=2321BD719D46F6E288C8ACDDA8C4AF02&gameid=" + appID;
         String response = getRequest(url);
         return (JSONObject) new JSONParser().parse(response);
     }
@@ -43,8 +51,19 @@ public class Util {
              readJson("userData");
          } catch (Exception e){
              JSONObject userData = new JSONObject();
+             userData.put("language", "english");
+             userData.put("lastSelectedGameIndex", 0);
              writeJson(userData, "userData");
          }
+    }
+
+    public static String getLanguage() {
+        try {
+            JSONObject userDataJSON = (JSONObject) readJson("userData");
+            return (String) userDataJSON.get("language");
+        } catch (Exception e) {
+            return "english";
+        }
     }
 
     public static int getLastSelectedGameIndex() {
