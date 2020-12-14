@@ -50,6 +50,7 @@ public class Util {
         return response.toString();
     }
 
+    @SuppressWarnings("unchecked")
     public static void createDefaultUserData() {
         try {
             readJson("userData");
@@ -61,6 +62,7 @@ public class Util {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void persistUserData(String key, Object value) {
         try {
             JSONObject userData = readJson("userData");

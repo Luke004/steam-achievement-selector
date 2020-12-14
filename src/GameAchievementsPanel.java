@@ -58,12 +58,9 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
                         JSONObject game = ((JSONObject) gamesJSON.get(i));
                         Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
                         if (has_community_visible_stats != null && has_community_visible_stats) {
-                            JSONObject achievements_root = Util.getAchievementByAppID((Long) game.get("appid"));
-                            JSONObject playerStats = (JSONObject) achievements_root.get("playerstats");
-                            JSONArray achievements = (JSONArray) playerStats.get("achievements");
-                            if (achievements != null) {
-                                playerStats.put("appid", game.get("appid"));
-                                achievements_root_list.add(playerStats);
+                            JSONObject achievementInfo = getGameInfo((Long) game.get("appid"));
+                            if(achievementInfo != null){
+                                achievements_root_list.add(achievementInfo);
                             }
                         }
                         loadPercentage = (int) ((float) i / gameCount * 100);
@@ -89,30 +86,6 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
     private void initComboBox() {
         try {
             ArrayList<String> listOfGamesWithAchievements = new ArrayList<>();
-            // for better performance: persist an 'achievedCounter' so we don't have to calculate it every run
-            // check if achievement list has a achievedCounter
-            // do this by checking for it in the first game in the achievement list
-            JSONObject firstGamePlayerStats = (JSONObject) achievementsList.get(0);
-            if (firstGamePlayerStats.get("achievedCounter") == null) {
-                // has no achievement counter persisted in json
-                // -> count all achieved achievements and persist the counter
-                for (Object game : achievementsList) {
-                    JSONObject gameJSON = (JSONObject) game;
-                    JSONArray achievements = (JSONArray) gameJSON.get("achievements");
-                    Long achieved_counter = 0L;
-                    for (Object achievement : achievements) {
-                        Long achieved = (Long) ((JSONObject) achievement).get("achieved");
-                        if (achieved == 1) {
-                            achieved_counter++;
-                        }
-                    }
-                    gameJSON.put("achievedCounter", achieved_counter);
-                }
-                // finally persist the new achievement list with the achievedCounter (overrides old list)
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("gameList", achievementsList);
-                Util.writeJson(jsonObject, "achievementsList");
-            }
             for (Object game : achievementsList) {
                 JSONObject gameJSON = (JSONObject) game;
                 JSONArray achievements = (JSONArray) gameJSON.get("achievements");
@@ -216,6 +189,17 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
             System.out.println("Error: Could not load global achievement percentages.");
             return;
         }
+        // if the player has made new achievement for the game, get that info from steam api and rewrite the list
+        JSONObject gameInfoUpdated = getGameInfo(currentGameID);
+        if(gameInfoUpdated.get("achievedCounter") != ((JSONObject) achievementsList.get(gameIdx)).get("achievedCounter")){
+            // game info has changed
+            achievementsList.add(gameIdx, gameInfoUpdated);
+            // persist the achievement list
+            JSONObject achievementsListJSON = new JSONObject();
+            achievementsListJSON.put("gameList", achievementsList);
+            Util.writeJson(achievementsListJSON, "achievementsList");
+        }
+        // get the achievement list and display all achievements
         JSONArray gameAchievementList = (JSONArray) ((JSONObject) achievementsList.get(gameIdx)).get("achievements");
         try {
             // save the description for each achievement which will later be displayed in tables tool tip text
@@ -252,6 +236,36 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
             e.printStackTrace();
             System.out.println("Error: Could not load global achievement percentages.");
         }
+    }
+
+    private static JSONObject getGameInfo(long gameID) {
+        JSONObject achievements_root;
+        try {
+            achievements_root = Util.getAchievementByAppID(gameID);
+            JSONObject achievementInfo = (JSONObject) achievements_root.get("playerstats");
+            JSONArray achievements = (JSONArray) achievementInfo.get("achievements");
+            if (achievements != null) {
+                achievementInfo.put("appid", gameID);
+                achievementInfo = addAchievedCounterToGameJSON(achievementInfo);
+                return achievementInfo;
+            }
+        } catch (Exception e) {
+            System.out.println("Error: Could not load achievement info for game '" + gameID + "'");
+        }
+        return null;
+    }
+
+    private static JSONObject addAchievedCounterToGameJSON(JSONObject gameJSON) {
+            JSONArray achievements = (JSONArray) gameJSON.get("achievements");
+            Long achieved_counter = 0L;
+            for (Object achievement : achievements) {
+                Long achieved = (Long) ((JSONObject) achievement).get("achieved");
+                if (achieved == 1) {
+                    achieved_counter++;
+                }
+            }
+            gameJSON.put("achievedCounter", achieved_counter);
+            return gameJSON;
     }
 
     /**
