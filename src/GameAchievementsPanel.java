@@ -59,7 +59,7 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
                         Boolean has_community_visible_stats = (Boolean) game.get("has_community_visible_stats");
                         if (has_community_visible_stats != null && has_community_visible_stats) {
                             JSONObject achievementInfo = getGameInfo((Long) game.get("appid"));
-                            if(achievementInfo != null){
+                            if (achievementInfo != null) {
                                 achievements_root_list.add(achievementInfo);
                             }
                         }
@@ -103,10 +103,37 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
             setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
             createTable();
             fillTable(lastSelectedGameIndex);
+            JButton updateBtn = new JButton("Update");
+            updateBtn.addActionListener(e -> {
+                updateGameInfo(gameList.getSelectedIndex());
+            });
+            add(updateBtn, BorderLayout.PAGE_END);
         } catch (Exception e) {
             System.out.println("Failed to create game combo box!");
             e.printStackTrace();
         }
+    }
+
+    private void updateGameInfo(int gameIdx) {
+        Long gameID = (Long) ((JSONObject) achievementsList.get(gameIdx)).get("appid");
+        JSONObject gameInfoUpdated = getGameInfo(gameID);
+        achievementsList.remove(gameIdx);   // delete old entry
+        achievementsList.add(gameIdx, gameInfoUpdated);     // add new entry
+        // persist the achievement list
+        JSONObject achievementsListJSON = new JSONObject();
+        achievementsListJSON.put("gameList", achievementsList);
+        Util.writeJson(achievementsListJSON, "achievementsList");
+        // update global achievement percentages as well
+        JSONObject achievementPercentagesJSONObject;
+        try {
+            achievementPercentagesJSONObject = (JSONObject) Util.getGlobalAchievementPercentagesForApp(gameID)
+                    .get("achievementpercentages");
+            // persist the request
+            Util.writeJson(achievementPercentagesJSONObject, gameID.toString());
+        } catch (Exception ignored) {
+        }
+        // finally fill the table with the updated data
+        fillTable(gameIdx);
     }
 
     /**
@@ -189,16 +216,6 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
             System.out.println("Error: Could not load global achievement percentages.");
             return;
         }
-        // if the player has made new achievement for the game, get that info from steam api and rewrite the list
-        JSONObject gameInfoUpdated = getGameInfo(currentGameID);
-        if(gameInfoUpdated.get("achievedCounter") != ((JSONObject) achievementsList.get(gameIdx)).get("achievedCounter")){
-            // game info has changed
-            achievementsList.add(gameIdx, gameInfoUpdated);
-            // persist the achievement list
-            JSONObject achievementsListJSON = new JSONObject();
-            achievementsListJSON.put("gameList", achievementsList);
-            Util.writeJson(achievementsListJSON, "achievementsList");
-        }
         // get the achievement list and display all achievements
         JSONArray gameAchievementList = (JSONArray) ((JSONObject) achievementsList.get(gameIdx)).get("achievements");
         try {
@@ -256,16 +273,16 @@ public class GameAchievementsPanel extends JPanel implements ActionListener {
     }
 
     private static JSONObject addAchievedCounterToGameJSON(JSONObject gameJSON) {
-            JSONArray achievements = (JSONArray) gameJSON.get("achievements");
-            Long achieved_counter = 0L;
-            for (Object achievement : achievements) {
-                Long achieved = (Long) ((JSONObject) achievement).get("achieved");
-                if (achieved == 1) {
-                    achieved_counter++;
-                }
+        JSONArray achievements = (JSONArray) gameJSON.get("achievements");
+        Long achieved_counter = 0L;
+        for (Object achievement : achievements) {
+            Long achieved = (Long) ((JSONObject) achievement).get("achieved");
+            if (achieved == 1) {
+                achieved_counter++;
             }
-            gameJSON.put("achievedCounter", achieved_counter);
-            return gameJSON;
+        }
+        gameJSON.put("achievedCounter", achieved_counter);
+        return gameJSON;
     }
 
     /**
